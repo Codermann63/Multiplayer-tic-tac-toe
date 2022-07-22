@@ -56,8 +56,8 @@ io.on('connection', (socket) =>{
 
 });
 
-server.listen(8080, () =>{
-    console.log('listening on local:8080')
+server.listen( () =>{
+    console.log('Listening')
 });
 setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
 //helper functions
