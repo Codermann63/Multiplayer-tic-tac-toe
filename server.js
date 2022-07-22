@@ -48,7 +48,7 @@ io.on('connection', (socket) =>{
             io.to(game[opposite(xo)]).emit('oppMove', game.board, 0, 0);
             game.turn = opposite(xo);
             if (checkWin(game.board)){closeGame(socket.id, 1)}
-            else if (checkFull(game.board)){closeGame(socket.id, 0);}
+            else if (checkFull(game.board)){closeGame(socket.id, 0);console.log("TIETIETIETIE")}
             else{}
             
         }
@@ -59,7 +59,7 @@ io.on('connection', (socket) =>{
 server.listen(8080, () =>{
     console.log('listening on local:8080')
 });
-setInterval(()=>{console.log(server.address());}, 1000); // TODO REMOVE
+setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
 //helper functions
 
 // obj {sid:string, win: bol, lose: bol}
@@ -224,5 +224,5 @@ function checkWin(board){
 }
 
 function checkFull(board){
-    return board.flat().includes(undefined);
+    return board.every((arr) =>!(arr.includes(undefined)));
 }
