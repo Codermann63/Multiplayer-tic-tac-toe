@@ -21,8 +21,8 @@ app.use(express.static(__dirname + '/static/img'));
 app.use(express.static(__dirname + '/scripts'));
 
 app.get('/', (req, res) => {
-    console.log(__dirname + '\\index.html')
-    res.sendFile('\\index.html');
+    console.log(__dirname + '\/index.html')
+    res.sendFile(__dirname + '\/index.html');
 })
 
 io.on('connection', (socket) =>{
