@@ -3,8 +3,7 @@ const express = require('express');
 const app = express();
 const http = require('http');
 
-const hostname = '127.0.0.1';
-const port = 5000;
+port = process.env.PORT || 80;
 
 const server = http.createServer(app);
 const { Server } = require('socket.io');
@@ -60,7 +59,7 @@ io.on('connection', (socket) =>{
 
 });
 
-server.listen(port, () =>{
+server.listen(() =>{
     console.log('Listening')
 });
 setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
