@@ -60,7 +60,7 @@ io.on('connection', (socket) =>{
 });
 
 server.listen(port, () =>{
-    console.log('Listening')
+    console.log('Listening does this affect heroku?')
 });
 setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
 //helper functions
