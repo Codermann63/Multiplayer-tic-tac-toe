@@ -59,7 +59,7 @@ io.on('connection', (socket) =>{
 
 });
 
-server.listen(() =>{
+server.listen(port, () =>{
     console.log('Listening')
 });
 setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
