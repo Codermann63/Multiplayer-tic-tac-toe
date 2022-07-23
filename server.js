@@ -4,7 +4,7 @@ const app = express();
 const http = require('http');
 
 const port = process.env.PORT || 80;
-
+console.log("enviroment port: " + process.env.PORT)
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server);
