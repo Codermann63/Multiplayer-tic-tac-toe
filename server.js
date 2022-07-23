@@ -22,7 +22,7 @@ app.use(express.static(__dirname + '/scripts'));
 
 app.get('/', (req, res) => {
     console.log(__dirname + '\\index.html')
-    res.sendFile(__dirname + '\\index.html');
+    res.sendFile('\\index.html');
 })
 
 io.on('connection', (socket) =>{
