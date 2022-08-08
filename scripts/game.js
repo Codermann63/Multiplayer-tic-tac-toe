@@ -4,7 +4,6 @@ let app = new PIXI.Application({ resizeTo: window, backgroundColor: 0x888888 });
 document.body.appendChild(app.view); 
 PIXI.settings.SCALE_MODE = PIXI.settings.SCALE_MODE.NEAREST;
 
-
 // consts
 const heightCells = 7
 const widthCells = 5
@@ -13,8 +12,22 @@ const ACTIVEAREA = activeArea();
 const SPRITESIDE = ACTIVEAREA.width < ACTIVEAREA.height? ACTIVEAREA.width/widthCells: ACTIVEAREA.height/heightCells;
 const ORIGIN = calcOrigin();
 const textStyle = new PIXI.TextStyle({fontSize: SPRITESIDE/2+'px'});
-//const URL = "http://localhost:8080"; //TODO CHANGE TO REAL IP???
-const socket = io({ autoConnect: false })//URL, { autoConnect: false });
+const socket = io({ autoConnect: false })
+let username;
+let updateUsername = () => {};
+let firstLogin = false
+const xml = new XMLHttpRequest();
+
+function sqlquery(query){
+    xml.open("POST", "/sql", true, 'user lol', "password lol");
+    xml.setRequestHeader("sql",query)
+    xml.send()
+    return xml.response;
+}
+
+
+
+
 
 socket.onAny((eventName, ...args) => {
     console.log(`${eventName}, ${args}`);
@@ -25,11 +38,61 @@ let sheet;    //TODO CHANGE TO LOCAL BINDING INSIDE CODE
 let totalArea = new PIXI.Container(); // TODO CHANGE TO LOCAL BINDING INSIDE CODE (Maybe)
 let tiles = [[],[],[]]; // TODO CHANGE TO LOCAL BINDING INSIDE CODE
 let test; //TODO REMOVE!!
+let credentials;
 totalArea.x = ORIGIN.x;
 totalArea.y = ORIGIN.y;
 totalArea.width = ACTIVEAREA.width;
 totalArea.height = ACTIVEAREA.height; 
 app.stage.addChild(totalArea);
+
+// user functions
+function login(id, password){
+    const xhr = new XMLHttpRequest();
+    console.log('hey')
+    xhr.open("POST", "/auth");
+    xhr.onreadystatechange = ()=>{
+        if (xhr.readyState === XMLHttpRequest.DONE){
+            let response = JSON.parse(xhr.response)
+            username = response['name']
+            updateUsername()
+            if (firstLogin){
+                if (response['success?'])setTimeout(() =>{alert('login successfull');}, 3);//alert('login successfull')
+                else setTimeout(() =>{alert('login unsuccessfull. Booted to anon user');}, 3);//alert('login unsuccessfull. Booted to anon user')
+            }
+            else firstLogin = true
+        }
+    }
+
+    if (id && password){
+        xhr.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+        let json = JSON.stringify({password:password, publicid:id}) 
+        xhr.send(json)
+    }
+    else{ xhr.send() }
+}
+
+function createUser(id, password){
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/createuser");
+    xhr.onreadystatechange = ()=>{
+        if (xhr.readyState === XMLHttpRequest.DONE){
+            let response = JSON.parse(xhr.response)
+            if (response['success?']) {
+                username = response['name']
+                updateUsername()
+                alert('logged in ')
+            }
+            else alert('userid taken!')
+            
+        }
+    }
+
+    if (id && password){
+        xhr.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+        let json = JSON.stringify({password:password, publicid:id}) 
+        xhr.send(json)
+    }
+}
 
 // helper functions
 function prepareSprite(file, x, y){
@@ -60,15 +123,39 @@ function main()
         // Hello {user}
         // change username
         // finde game
+
+    
+
+    let loginbutton = new PIXI.Text('login', textStyle);
+    loginbutton.interactive = true;
+    loginbutton.on('pointerdown', () =>{
+        let id = window.prompt('enter UserID: ');
+        let password = window.prompt('enter password');
+        login(id, password)
+    })
+
+    let createUserButton = new PIXI.Text('Create User', textStyle);
+    createUserButton.y = loginbutton.height;
+    createUserButton.interactive = true;
+    createUserButton.on('pointerdown', ()=>{
+        let id = window.prompt('enter UserID: ');
+        let password = window.prompt('enter password');
+        createUser(id, password)
+
+    });
+
+    
+
     let title = new PIXI.Text('TIC-TAC-TOE', {fontSize: SPRITESIDE});
     title.x = (widthCells/2)*SPRITESIDE;
     title.y = 1*SPRITESIDE;
     title.anchor.x = 0.5
 
-    let usertext = new PIXI.Text('Hello {user}', textStyle);
-    usertext.x = (widthCells/2)*SPRITESIDE;
-    usertext.y = 3*SPRITESIDE;
-    usertext.anchor.x = 0.5 
+    let hellousertxt = new PIXI.Text(`Hello ${username}`, textStyle);
+    hellousertxt.x = (widthCells/2)*SPRITESIDE;
+    hellousertxt.y = 3*SPRITESIDE;
+    hellousertxt.anchor.x = 0.5 
+    updateUsername = () =>{if (typeof hellousertxt != 'undefined'){hellousertxt.text = `Hello ${username}`;}}
 
     let changeUsername = new PIXI.Text('change username', textStyle);
     changeUsername.x = (widthCells/2)*SPRITESIDE;
@@ -76,7 +163,57 @@ function main()
     changeUsername.anchor.x = 0.5 
     changeUsername.interactive = true
     changeUsername.on('pointerdown', (event) => { 
-        changeUsername.text ='not avail right now';});
+        let name = window.prompt('change username: ')
+        sendUsernameRequest(name)
+        /* LEGACY CODE
+        const keyObj = keyboard();
+        let usertxt = ""
+        keyObj.press = (event) => {
+            username:{
+                const code = event.key.charCodeAt(0)
+                console.log(event.key.length, isNumeric(code), isLower(code), isUpper(code));
+                if(event.key.length == 1 && (isNumeric(code) || isLower(code) || isUpper(code))) { 
+                    usertxt += event.key
+                }
+                else if (event.key == 'Enter'){
+                    // finish entering
+                    keyObj.unsubscribe();
+                    changeUsername.text = 'Contacting server...';
+                    sendUsernameRequest(usertxt)
+                    break username;
+                }
+                else if (event.key == "Delete" || event.key == 'Backspace'){
+                    // delete last char
+                    if (usertxt.length >0){
+                        usertxt = usertxt.substring(0,usertxt.length - 1)
+                    }
+                }
+                changeUsername.text = "new username: " + usertxt
+            }
+            
+        }*/
+    });
+
+    function sendUsernameRequest(name){
+        console.log('sending username request with '+JSON.stringify({name:name}))
+        let xhr = new XMLHttpRequest();
+        xhr.open('POST', '/changeusername');
+        xhr.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+        let json = JSON.stringify({name:name})
+        xhr.onreadystatechange = () =>{
+            if (xhr.readyState === XMLHttpRequest.DONE){
+                let response = JSON.parse(xhr.response)
+                console.log(response)
+                if (response['success?']){
+                    username = response['name'];
+                    updateUsername(response['name']);
+                    alert('username changed to ' + name)
+                }
+                else alert('Username change unsucsessfull')
+            }
+        }
+        xhr.send(json);
+    }
 
 
     let findGame = new PIXI.Text('Find game', textStyle);
@@ -87,9 +224,10 @@ function main()
     findGame.on('pointerdown', (event) => { 
         game();});
 
-
+    totalArea.addChild(createUserButton);
+    totalArea.addChild(loginbutton);
     totalArea.addChild(title);
-    totalArea.addChild(usertext);
+    totalArea.addChild(hellousertxt);
     totalArea.addChild(changeUsername);
     totalArea.addChild(findGame);
 }
@@ -100,7 +238,10 @@ function game()
     totalArea.removeChildren(0, totalArea.children.length);
     let gid;
     let xo;
+    const oppturn = ' Opponents turn '
+    const yourturn = ' Your turn '
     
+
     // exit
     let exit = prepareSprite("x.png", 0, 0);
     exit.interactive = true;
@@ -152,6 +293,7 @@ function game()
             tile.on('pointerdown', (event) => { 
                 tiles[i-starti][j-startj][xo].visible = true
                 setInteractive(false);
+                toptxt.text = opposite(xo)+oppturn+opposite(xo)
                 socket.emit('move', i-starti, j-startj);
             });
             board.addChild(tile);
@@ -177,11 +319,14 @@ function game()
 
     socket.on('startGame', (oppname) =>{
         bottomtxt.text = 'playing against ' + oppname;
-        if (xo == 'x'){setInteractive(true);}
+        if (xo == 'x'){setInteractive(true);
+            toptxt.text = xo+yourturn+xo}
+        else{toptxt.text = opposite(xo)+oppturn+opposite(xo)}
     })
 
     socket.on('oppMove', (board)=>{
         setBoard(board);
+        toptxt.text = xo+' Your turn '+xo
         setInteractive(true);
     });
 
@@ -277,14 +422,76 @@ function game()
     function empty(i, j){
         return !(tiles[i][j].x.visible || tiles[i][j].o.visible);
     }
-
-    setInterval(()=>{console.log(socket.id)}, 500);
 }
 
 
+// helper functions
+//string -> string
+// returns the opposite x/o... default case x
+function opposite(xo){
+    if(xo == 'x'){return 'o'}
+    else{return 'x'}
+}
 
+// string -> keyboard object 
+// returns a key object that listens for a keypress/release of "value", if undefined, any keypress/release goes.
+// event functions is added with key.upHandler(event) or key.downHandler(event).
+// key.unsubscribe to delete eventhandlers again.
+function keyboard(value) {
+    const key = {};
+    key.value = value;
+    key.press = undefined;
+    key.release = undefined;
+    //The `downHandler`
+    key.downHandler = (event) => {
+        if (key.press && (!key.value || event.key === value)) {
+          key.press(event);
+        }
+      };
+  
+    //The `upHandler`
+    key.upHandler = (event) => {
+        if (key.release && (!key.value || event.key === value)) {
+          key.release(event);
+        }
+      };
+  
+    //Attach event listeners
+    const downListener = key.downHandler.bind(key);
+    const upListener = key.upHandler.bind(key);
+    
+    window.addEventListener("keydown", downListener, false);
+    window.addEventListener("keyup", upListener, false);
+    
+    // Detach event listeners
+    key.unsubscribe = () => {
+      window.removeEventListener("keydown", downListener);
+      window.removeEventListener("keyup", upListener);
+    };
 
+    return key;
+  }
 
+// int -> bool
+// checks if charcode is in the numeric interval
+function isNumeric(code){
+    return (code > 47 && code < 58);
+}
+
+// int -> bool
+// checks if charcode is in the uppercase alphanumeric interval
+function isUpper(code){
+    return (code > 64 && code < 91);
+}
+
+// int -> bool
+// checks if charcode is in the lowercase alphanumeric interval
+function isLower(code){
+    return (code > 96 && code < 123);
+}
+
+// load
 PIXI.Loader.shared.add('spritesheet.json').load(() =>{sheet = PIXI.Loader.shared.resources['spritesheet.json'].spritesheet;  });
 PIXI.Loader.shared.onComplete.add(() => {main()}, {once:true})
 
+login(/*with cookie*/);

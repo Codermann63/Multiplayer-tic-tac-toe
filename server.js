@@ -2,68 +2,145 @@
 const express = require('express');
 const app = express();
 const http = require('http');
+const DB = require('./db.js');
+const sql = DB.sql;
+const COOKIE = require('cookie');
+
 
 const port = process.env.PORT || 80;
 console.log("enviroment port: " + process.env.PORT)
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server);
-
+const cookieParser = require('cookie-parser')
+const bodyParser = require('body-parser')
+app.use(cookieParser());
+app.use(bodyParser.urlencoded({extended:true}));
+app.use(express.json());
 let roomCount = 1;
 
 // global vars
 let waitingRoom = [];
-let games = {}; // {board:[[],[],[]], x: socketid, o: socketid, turn: string ('x'/'o')}
+let games = {}; // {board:[[],[],[]], x: socketid, o: socketid, xname, oname, turn: string ('x'/'o')}
 let socketsingame = {};
 
 
 app.use(express.static(__dirname + '/static/img'));
 app.use(express.static(__dirname + '/scripts'));
 
-app.get('/', (req, res) => {
-    console.log(__dirname + '\/index.html')
-    res.sendFile(__dirname + '\/index.html');
+app.post('/sql', (req, res) =>{
+    console.log(req.get('lol'))
+    sql.query(req.get('sql'), (err, result)=>{
+        if(!err){
+            console.log(result.rowCount);
+            res.send({foo: result.rows});
+        }
+        else{console.log(err);
+            res.send({foo: 'error'})}
+    });
+    
+    console.log('done')
 })
+
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html', {});
+})
+
+async function login(req, res, cookie, id, password){
+    let loginattempt = await DB.auth(id, password, cookie).catch((err) => console.log(err));
+    let name = 'anon-user'
+    let success = false
+    if (loginattempt){
+        console.log("succesfull login");
+        res.cookie('accesshash', loginattempt.newaccesshash)
+        res.cookie('publicid', loginattempt.publicid)
+        // can also send loginattempt.publicID
+        name = loginattempt.name;
+        success = true;
+    }
+    else{
+        console.log('unsuccessfull login :: clear cookies')
+        res.clearCookie('accesshash');
+        res.clearCookie('publicid');
+    }
+    console.log("send back " + name)
+    res.send({name: name, 'success?':success})
+}
+
+app.post('/auth', (req, res) =>{
+    login(req, res ,req.cookies, req.body.publicid, req.body.password)
+});
+
+app.post('/createuser', (req, res) =>{
+    DB.createUser(req.body.publicid, req.body.password).then((result)=>{
+        console.log(5)
+        if (!result){res.send({'success?':false})}
+        else{
+            res.cookie('accesshash', result.accesshash)
+            res.cookie('publicid', result.publicid)
+            res.send({name:result.name, 'success?':true})
+        }
+    });
+});
+
+app.post('/changeusername', (req, res) =>{
+    DB.changeUsername(req.body.name, req.cookies).then((result) =>{
+        if (result) res.send({'success?':true, name:req.body.name})
+        else res.send({'success?':false})
+    });
+});
+
+//middleware
+const myLogger = function (req, res, next) {
+    console.log('hellothere')
+    next()
+}
+
+app.use(myLogger)
 
 io.on('connection', (socket) =>{
     console.log('user has connected');
-    
-    joinGame(socket.id);
 
-    socket.onAny((eventName, ...args) => {
-        console.log(`LOG: ${eventName}, ${args}`);
-    }); //TODO REMOVES
-    
-    socket.on('disconnect', (reason) =>{
-        console.log('user has disconnected: ' + reason); //TODO REMOVE
-        //if (reason == 'client namespace disconnect')
-        closeGame(socket.id , -1)
-    })
+    console.log(COOKIE.parse(socket.request.headers.cookie))
+
+    DB.getUsername(COOKIE.parse(socket.request.headers.cookie)).then((name)=>{
+        io.of('/').sockets.get(socket.id).name = name;
+
+        joinGame(socket.id);
+
+        socket.onAny((eventName, ...args) => {
+            console.log(`LOG: ${eventName}, ${args}`);
+        }); //TODO REMOVES
+        
+        socket.on('disconnect', (reason) =>{
+            console.log('user has disconnected: ' + reason); //TODO REMOVE
+            //if (reason == 'client namespace disconnect')
+            closeGame(socket.id , -1)
+        })
 
 
-    socket.on('move', (i, j) =>{
-        let gameid = socketsingame[socket.id];
-        let game = games[gameid];
-        let xo = getxo(gameid, socket.id)
-        if (xo == game.turn && !game.board[i][j]){
-            game.board[i][j] = xo;
-            
-            
-            io.to(game[opposite(xo)]).emit('oppMove', game.board, 0, 0);
-            game.turn = opposite(xo);
-            if (checkWin(game.board)){closeGame(socket.id, 1)}
-            else if (checkFull(game.board)){closeGame(socket.id, 0);console.log("TIETIETIETIE")}
-            else{}
-            
-        }
+        socket.on('move', (i, j) =>{
+            let gameid = socketsingame[socket.id];
+            let game = games[gameid];
+            let xo = getxo(gameid, socket.id)
+            if (xo == game.turn && !game.board[i][j]){
+                game.board[i][j] = xo;
+                
+                
+                io.to(game[opposite(xo)]).emit('oppMove', game.board, 0, 0);
+                game.turn = opposite(xo);
+                if (checkWin(game.board)){closeGame(socket.id, 1)}
+                else if (checkFull(game.board)){closeGame(socket.id, 0);console.log("TIETIETIETIE")}
+                else{}
+                
+            }
+        });
     });
-
 });
 
 server.listen(port, () =>{
-    console.log('Listening does this affect heroku?')
+    console.log('Listening on port: ' + port)
 });
-setInterval(()=>{console.log(server.address());}, 3000); // TODO REMOVE
 //helper functions
 
 // obj {sid:string, win: bol, lose: bol}
@@ -101,6 +178,8 @@ function findGame(){
         games[id] = {board:[new Array(3),new Array(3),new Array(3)],
                      x: undefined,
                      o: undefined,
+                     xname:undefined,
+                     oname:undefined,
                     turn: 'x'}
         waitingRoom.push(id);
         return id;
@@ -119,10 +198,12 @@ function joinGame(sid){
     let xo;
     if(!games[roomid].x){
         games[roomid].x = sid;
+        games[roomid].xname = io.of('/').sockets.get(sid).name
         xo = 'x';
     }
     else if(!games[roomid].o){
         games[roomid].o = sid;
+        games[roomid].oname = io.of('/').sockets.get(sid).name
         xo = 'o';
     }
     else {return joinGame(sid);}
@@ -131,8 +212,8 @@ function joinGame(sid){
     if (xo == 'o'){
         if (io.of('/').sockets.has(sid) && io.of('/').sockets.has(games[roomid].x))
         {
-            io.to(games[roomid].x).emit('startGame', 'o-oppname'); // TODO CHANGE o-oppname
-            io.to(sid).emit('startGame', 'x-oppname'); // TODO CHANGE x-oppname
+            io.to(games[roomid].x).emit('startGame', games[roomid].oname); // TODO CHANGE o-oppname
+            io.to(sid).emit('startGame', games[roomid].xname); // TODO CHANGE x-oppname
         }
         else if (!io.of('/').sockets.has(sid))
         {
@@ -230,3 +311,6 @@ function checkWin(board){
 function checkFull(board){
     return board.every((arr) =>!(arr.includes(undefined)));
 }
+
+
+DB.connect();
