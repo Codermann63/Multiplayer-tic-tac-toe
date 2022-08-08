@@ -3,13 +3,23 @@ const {Client} = require('pg')
 const bcrypt = require('bcrypt');
 const saltRounds = 5;
 
-const sql = new Client({
+const production = true;
+let sql;
+
+if (production){
+    sql = new Client({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {rejectUnauthorized: false}
+    });
+}
+else{
+sql = new Client({
     host: "localhost",
     user: "postgres",
     port: 5432,
     password: "1234",
     database: "postgres"
-})
+});}
 
 /* BD SETUP
 id: UNIQUE, AUTO, INCREMENT   -- internal id
