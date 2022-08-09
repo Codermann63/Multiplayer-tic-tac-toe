@@ -3,7 +3,7 @@ const {Client} = require('pg')
 const bcrypt = require('bcrypt');
 const saltRounds = 5;
 
-const production = false;
+const production = true;
 let sql;
 
 if (production){
