@@ -73,14 +73,12 @@ app.post('/auth', (req, res) =>{
 
 app.post('/createuser', (req, res) =>{
     DB.createUser(req.body.publicid, req.body.password).then((result)=>{
-        console.log(5)
-        if (!result){res.send({'success?':false})}
-        else{
-            res.cookie('accesshash', result.accesshash)
-            res.cookie('publicid', result.publicid)
-            res.send({name:result.name, 'success?':true})
-        }
-    });
+
+        res.cookie('accesshash', result.accesshash)
+        res.cookie('publicid', result.publicid)
+        res.send({name:result.name, 'success?':true})
+
+    }).catch((err) =>res.send({'success?':false, 'error': err}));
 });
 
 app.post('/changeusername', (req, res) =>{
@@ -213,7 +211,7 @@ function joinGame(sid){
         if (io.of('/').sockets.has(sid) && io.of('/').sockets.has(games[roomid].x))
         {
             io.to(games[roomid].x).emit('startGame', games[roomid].oname); // TODO CHANGE o-oppname
-            io.to(sid).emit('startGame', games[roomid].xname); // TODO CHANGE x-oppname
+            io.to(sid).emit('startGame', games[roomid].oname); // TODO CHANGE x-oppname
         }
         else if (!io.of('/').sockets.has(sid))
         {

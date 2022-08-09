@@ -3,7 +3,7 @@ const {Client} = require('pg')
 const bcrypt = require('bcrypt');
 const saltRounds = 5;
 
-const production = true;
+const production = false;
 let sql;
 
 if (production){
@@ -44,7 +44,7 @@ async function getUsername(cookie){
 // tries to update name with logincredintials in cookie. If successfull return name.
 async function changeUsername(name, cookie){
     console.log('username request recieved '+name )
-    if (!cookie){ return false; }
+    if (!cookie || !name){ return false; }
     let publicid = cookie.publicid;
     let accesshash = cookie.accesshash;
     return await sql.query(`SELECT * FROM users WHERE publicid = $1 AND accesshash = $2 `,[publicid , accesshash]).then((result) => {
@@ -60,7 +60,7 @@ async function changeUsername(name, cookie){
 async function createUser(publicid, password){
     console.log('creating user: '+publicid+'  password: '+password);
     let checkAvail = await sql.query('SELECT * FROM users WHERE publicid = $1', [publicid])
-    if (checkAvail.rowCount != 0) return false;
+    if (checkAvail.rowCount != 0) throw 'Username taken';
     console.log(1)
     let name = 'newUser';
     let passhash = await bcrypt.hash(password, saltRounds);
@@ -68,10 +68,10 @@ async function createUser(publicid, password){
     let accesshash = generateAccessHash();
     console.log(3)
 
-    return await sql.query('INSERT INTO users(name, publicid, passhash, accesshash) VALUES($1, $2, $3, $4)',[name, publicid, passhash, accesshash]).then((result) =>{
+    return sql.query('INSERT INTO users(name, publicid, passhash, accesshash) VALUES($1, $2, $3, $4)',[name, publicid, passhash, accesshash]).then((result) =>{
         console.log(4)
         return {name:name, accesshash:accesshash, publicid:publicid};
-    });
+    }).catch((err) =>{console.log(err); throw 'UserID should be less than 20 characters and password less than 30.';});
     
 }//TODO 
 
@@ -145,16 +145,17 @@ function generateAccessHash(){
 }
 
 function connect(){
-    return sql.connect();
+    sql.connect().then(()=>{
+    sql.query(`CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(20) NOT NULL,
+        accesshash VARCHAR(32) NOT NULL,
+        publicid VARCHAR(20) NOT NULL,
+        passhash VARCHAR(64) NOT NULL
+    )`).catch((err)=> console.log(err))})
+    return 
 }
 
-async function hash(pw){
-    return await bcrypt.genSalt(saltRounds, function(err, salt) {
-        bcrypt.hash(pw, salt, function(err, hash) {
-            return {hash:hash};
-        });
-    });
-}
 
 module.exports = {sql:sql,
 auth:auth,

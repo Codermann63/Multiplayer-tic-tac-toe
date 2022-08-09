@@ -82,7 +82,7 @@ function createUser(id, password){
                 updateUsername()
                 alert('logged in ')
             }
-            else alert('userid taken!')
+            else alert(response['error'])
             
         }
     }
