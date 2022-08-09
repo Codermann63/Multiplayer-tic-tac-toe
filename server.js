@@ -211,7 +211,7 @@ function joinGame(sid){
         if (io.of('/').sockets.has(sid) && io.of('/').sockets.has(games[roomid].x))
         {
             io.to(games[roomid].x).emit('startGame', games[roomid].oname); // TODO CHANGE o-oppname
-            io.to(sid).emit('startGame', games[roomid].oname); // TODO CHANGE x-oppname
+            io.to(sid).emit('startGame', games[roomid].xname); // TODO CHANGE x-oppname
         }
         else if (!io.of('/').sockets.has(sid))
         {
