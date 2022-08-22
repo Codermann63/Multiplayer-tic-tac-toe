@@ -32,6 +32,7 @@ passHash: ??? -- used to auth
 */
 
 async function getUsername(cookie){
+    if (!cookie) return 'anon-user';
     return await sql.query(`SELECT * FROM users WHERE publicid = $1`,[cookie.publicid]).then((result) => {
         if (result.rowCount == 1){
             console.log('found user')}
