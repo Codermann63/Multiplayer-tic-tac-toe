@@ -101,9 +101,10 @@ io.on('connection', (socket) =>{
 
     console.log(socket.request.headers.cookie)
 
-    
+    let cookie = COOKIE.parse(socket.request.headers.cookie);
+    cookie = cookie ? cookie : {publicid : 0}
 
-    console.log(COOKIE.parse(socket.request.headers.cookie))
+    console.log(cookie);
 
     DB.getUsername(COOKIE.parse(socket.request.headers.cookie)).then((name)=>{
         io.of('/').sockets.get(socket.id).name = name;
