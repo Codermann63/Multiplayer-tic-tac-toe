@@ -99,6 +99,10 @@ app.use(myLogger)
 io.on('connection', (socket) =>{
     console.log('user has connected');
 
+    console.log(socket.request.headers.cookie)
+
+    
+
     console.log(COOKIE.parse(socket.request.headers.cookie))
 
     DB.getUsername(COOKIE.parse(socket.request.headers.cookie)).then((name)=>{
